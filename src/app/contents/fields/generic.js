@@ -11,6 +11,7 @@ const developmentStatus_list = [
   "stable",
   "obsolete"
 ];
+
 const softwareType_list = [
   "standalone/backend",
   "standalone/desktop",
@@ -50,7 +51,7 @@ const fields = async () => {
       description:
         "This key contains the name of the software. It contains the (short) public name of the product, which can be localised in the specific localisation section. It should be the name most people usually refer to the software. In case the software has both an internal 'code' name and a commercial name, use the commercial name.",
       section: 0,
-      required: true
+      required: false
     },
     {
       title: "releaseDate",
@@ -59,7 +60,7 @@ const fields = async () => {
       description:
         "This key contains the date at which the latest version was released. This date is mandatory if the software has been released at least once and thus the version number is present.",
       section: 2,
-      required: true,
+      required: false,
       widget: "date"
     },
     {
@@ -70,7 +71,7 @@ const fields = async () => {
         "A unique identifier for this software. This string must be a URL to the source code repository (git, svn, ...) in which the software is published. If the repository is available under multiple protocols, prefer HTTP/HTTPS URLs which don't require user authentication.",
       widget: "url",
       section: 1,
-      required: true
+      required: false
     },
     {
       title: "applicationSuite",
@@ -118,7 +119,7 @@ const fields = async () => {
       section: 4,
       maxLength: 150,
       group: "description",
-      required: true
+      required: false
     },
     {
       title: "longDescription",
@@ -129,8 +130,8 @@ const fields = async () => {
       section: 4,
       group: "description",
       widget: "editor",
-      required: true,
-      minLength: 500,
+      required: false,
+      minLength: 50,
       maxLength: 10000,
       cn: "block__item--full"
     },
@@ -166,7 +167,7 @@ const fields = async () => {
         maxLength: 100,
       },
       section: 4,
-      required: true,
+      required: false,
       group: "description"
     },
     {
@@ -255,7 +256,7 @@ const fields = async () => {
         "Allowed values: concept, development, beta, stable, obsolete",
       enum: developmentStatus_list,
       section: 2,
-      required: true,
+      required: false,
       widget: "choice-expanded"
     },
     {
@@ -266,7 +267,7 @@ const fields = async () => {
         "Allowed values: standalone, addon, library, configurationFiles",
       enum: softwareType_list,
       section: 2,
-      required: true,
+      required: false,
       widget: "choice-expanded"
     },
     {

@@ -3,24 +3,47 @@ import { connect } from "react-redux";
 import copy from "copy-to-clipboard";
 import validator from "validator";
 import { notify } from "../store/notifications";
-import { APP_FORM, sampleUrl } from "../contents/constants";
+import { APP_FORM, sampleGhUrl, sampleUrl } from "../contents/constants";
 import img_x from "../../asset/img/x.svg";
 import img_copy from "../../asset/img/copy.svg";
 import img_upload from "../../asset/img/load.svg";
 import img_download from "../../asset/img/download.svg";
 import img_dots from "../../asset/img/dots.svg";
 import img_xx from "../../asset/img/xx.svg";
+import img_gh_pr from "../../asset/img/gh_pr.svg";
 
 import { passRemoteURLToValidator } from "../utils/calls";
 import { getLabel } from "../contents/data";
 
+import Gh from '../utils/GithubClient'
+import {
+  setStateToken,
+  setAuthToken,
+  exchangeCodeForToken
+} from '../store/authenticate'
+import { setAuthorize, fetchUserPermission } from '../store/authorize'
+import { startFetch, endFetch } from '../store/repo';
+import { unsetAndUnstoreRepo } from '../store/authorize';
+
+
 function mapStateToProps(state) {
-  return { form: state.form };
+  console.log(state)
+  return { 
+    form: state.form,
+  };
 }
 
 const mapDispatchToProps = dispatch => {
   return {
-    notify: data => dispatch(notify(data))
+    notify: data => dispatch(notify(data)),
+    setAuthToken: token => dispatch(setAuthToken(token)),
+    exchangeCodeForToken: (stateToken, code) => dispatch(exchangeCodeForToken(stateToken, code)),
+    setStateToken: stateToken => dispatch(setStateToken(stateToken)),
+    setAuthorize: bool => dispatch(setAuthorize(bool)),
+    fetchUserPermission: (token, owner, repo) => dispatch(fetchUserPermission(token, owner, repo)),
+    unsetRepo: () => dispatch(unsetAndUnstoreRepo()),
+    startRepoFetch: () => dispatch(startFetch()),
+    finishRepoFetch: () => dispatch(endFetch())
   };
 };
 
@@ -32,11 +55,173 @@ const mapDispatchToProps = dispatch => {
 class sidebar extends Component {
   constructor(props) {
     super(props);
+    console.log("Sidebar")
+    console.log(props)
     this.state = {
       dialog: false,
-      remoteYml: sampleUrl
+      remoteYml: sampleUrl,
+      githubRepo: sampleGhUrl,
+      ghdialog: false
     };
+    console.log(this.state)
+    console.log(this.prop)
   }
+
+  async componentDidMount() {
+    console.log("******* componentDidMount ********")
+    this.handleAuthState(this.checkAuthState())
+  }
+
+  componentDidUpdate(prevProps) {
+    console.log("******* componentDidUpdate ********")
+    let { verdict, payload } = this.checkAuthState()
+    if (!(verdict === 'authenticated' && this.props.authorized)
+    || this.props.targetRepo !== prevProps.targetRepo) {
+        this.handleAuthState({ verdict, payload })
+    }
+  }
+
+  checkAuthState() {
+    let access_token = window.sessionStorage.getItem('GH_ACCESS_TOKEN')
+    let target_repo = window.sessionStorage.getItem('target_repo')
+
+    // first case can only occur on cmpntDidUpdate()
+    // if auth token found in store.state and stored on browser, 'authenticated'
+    if (this.props.authenticated === true && access_token) {
+        return { verdict: 'authenticated' }
+    } else if (access_token && target_repo) {
+        // this case should only occur on returning to page within same browser sesh
+        // user has token already, and repo should only be stored if user has permission on it
+        return {
+            verdict: 'previously_authorized',
+            payload: [ // return iterable payload so I can spread it as function args
+                access_token,
+                target_repo // re-check permissions below
+            ]
+        }
+    } else if (access_token) {
+        // this case should only occure on returning to page within same browser sesh
+        // user has token already, but needs to connect a repo
+        return {
+            verdict: 'previously_authenticated',
+            payload: access_token
+        }
+    }
+
+    // if no ghAuthToken found anywhere, check for gh state token & code
+    let { code, stateToken } = this.getCodeAndStateFromQs(window.location.search)
+    let storedStateToken = window.sessionStorage.getItem('GH_STATE_TOKEN')
+    if (code && stateToken && storedStateToken && stateToken === storedStateToken) return {
+        verdict: 'pending',
+        payload: code
+    }
+
+    return {
+        verdict: 'not_authenticated'
+    }
+  }
+
+  /**
+  * 1. check for GH auth token on sessionStorage and Redux store
+  *    - if present, user is authorized
+  * 2. if no GH auth token, check for [ GH state token, code ] in `qs` & [ GH state token ] in `sessionStorage`
+  *    - if found, user is mid-auth-flow, exchange GH code for auth token
+  * 3. if no [ GH state token | code ] on `qs` or no [ GH state token ] in `sessionStorage`, user has yet to authorize
+  *    - generate Gh state token, hold it in state & save it in sessionStorage
+  */
+  async handleAuthState({ verdict, payload }) {
+    // TODO: handle permutations and combinations of `authorized` w/ `authenticated`
+    console.log("handleAuthState")
+    console.log(verdict)
+
+    if (verdict === 'authenticated') return
+    else if (verdict === 'previously_authorized') {
+        // previously authorized, try to authorize again
+        this.props.setAuthToken(payload[0])
+        this.props.fetchUserPermission(...payload)
+    } else if (verdict === 'previously_authenticated') {
+        // previously auathenticated, no need to authorize again
+        // we need to collect a new repo from user
+        this.props.setAuthToken(payload)
+    } else if (verdict === 'pending') {
+        window.history.replaceState('publiccode-pusher login', '', '/')
+        window.sessionStorage.removeItem('GH_STATE_TOKEN')
+        this.props.exchangeCodeForToken(payload)
+    } else {
+        console.log("getting ghStateToken")
+        const ghStateToken = Gh.generateState()
+        console.log(ghStateToken)
+        window.sessionStorage.setItem('GH_STATE_TOKEN', ghStateToken)
+        this.props.setStateToken(ghStateToken)
+        this.state.ghStateToken = ghStateToken
+    }
+    console.log(this.props)
+    // what the hell is the difference between auth and state token?!
+    console.log(this.props.ghStateToken)
+  }
+
+  getCodeAndStateFromQs(qs) {
+    qs = qs.slice(1)
+    if (!qs) return false
+    let params = qs.split('&')
+
+    let code = params.find(param => param.startsWith('code='))
+    code = code && decodeURI(code.split('=')[1])
+
+    let stateToken = params.find(param => param.startsWith('state='))
+    stateToken = stateToken && decodeURI(stateToken.split('=')[1])
+
+    return { code, stateToken }
+  }
+
+  async pushToGithub(data) {
+    console.log("pushToGithub")
+    console.log("props", this.props)
+    console.log("state", this.state)
+    console.log("props.token", this.props.token)
+    console.log("state.token", this.state.ghStateToken)
+    // let gh = new Gh(this.props.token)
+    let gh = new Gh(this.state.ghStateToken)
+    let [ owner, repo ] = this.state.targetRepo.replace(/https*:\/\/github.com\//, '').split('/')
+    console.log("before startRepoFetch", owner, repo)
+    this.props.startRepoFetch()
+    console.log("after startRepoFetch")
+
+    try {
+      let { object: { sha: baseSha }} = await gh.repo.branch.get(owner, repo, 'master')
+      await gh.repo.branch.push(owner, repo, baseSha)
+
+      // This stuff is all copy+pasted from this.generate() & this.showResults()
+      // TODO: I don't need to access state if I can use the formData that is passed as argument
+      // let { values, country, elements } = this.state;
+      // let obj = ft.transform(values, country, elements);
+
+      // let mergedValue = { ...staticFieldsJson, ...obj };
+      // let tmpYaml = jsyaml.dump(mergedValue);
+      let yaml = data; //staticFieldsYaml + tmpYaml;
+
+      // commit YAML file to the branch Publiccode-pusher/add-publiccode-yml
+      await gh.repo.commit(owner, repo, btoa(yaml))
+
+      // Open a pull request for branch Publiccode-pusher/add-publiccode-yml
+      let pr = await gh.repo.pulls.open(owner, repo)
+      this.setState({ pullRequestURL: pr.url })
+      this.submitFeedback()
+
+      this.setState({ yaml, loading: false });
+    } catch (er) {
+      console.error(er);
+      this.props.notify({
+        type: 'error',
+        title: 'Oops',
+        msg: er.message,
+        millis: 30000
+      })
+    } finally {
+      this.props.finishRepoFetch()
+    }
+  }
+
 
   componentWillReceiveProps(prevProps) {
     const { remoteYml } = prevProps;
@@ -59,8 +244,18 @@ class sidebar extends Component {
     this.setState({ dialog });
   }
 
+  showGhDialog(ghdialog) {
+    this.setState({ ghdialog });
+  }
+
   handleChange(e) {
     this.setState({ remoteYml: e.target.value });
+    console.log("handleChange")
+  }
+
+  handleGhChange(e) {
+    this.setState({ targetRepo: e.target.value });
+    console.log("handleGhChange", this.state.targetRepo)
   }
 
   async loadRemoteYaml(e) {
@@ -151,8 +346,17 @@ class sidebar extends Component {
     }, 1000);
   }
 
+  checkGhAuth() {
+    console.log("checkGhAuth")
+    if(this.props.authorized !== 'authorized') {
+      console.log("need to log in gh")
+      this.showGhDialog(true)
+    }
+  }
+
   render() {
     let { dialog } = this.state;
+    let { ghdialog } = this.state;
     let { yaml, loading, allFields, form } = this.props;
     let errors = null;
     let fail = false;
@@ -198,6 +402,41 @@ class sidebar extends Component {
             </div>
           )}
         </div>
+
+
+        {ghdialog && (
+          <div className="sidebar__prefooter">
+            <div
+              className="sidebar__prefooter__close"
+              onClick={() => this.showGhDialog(false)}
+            >
+              <img src={img_xx} alt="close" />
+            </div>
+            <div className="sidebar__prefooter__content">
+              <div>
+                <div>Enter the full URL of the GitHub repo you want to add a publiccode.yml file to</div>
+                <form
+                    onSubmit={e => this.pushToGithub(e)}
+                    className="sidebar__prefooter__content__form"
+                  >
+                    <input
+                      className="form-control"
+                      type="url"
+                      value={this.state.githubRepo}
+                      required={true}
+                      onChange={e => this.handleGhChange(e)}
+                    />
+                    <button type="submit" className="btn btn-primary btn-block">
+                      <img src={img_gh_pr} alt="push" />Push
+                    </button>
+                  </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+
 
         {dialog && (
           <div className="sidebar__prefooter">
@@ -283,6 +522,16 @@ class sidebar extends Component {
               <img src={img_download} alt="dowload" />
               <span className="action" onClick={!yaml ? null : () => this.download(yaml)}>
                 Download
+              </span>
+            </a>
+          </div>
+          <div className="sidebar__footer_item">
+            <a href="#" className={!yaml ? 'disabled' : 'enabled'}>
+              <img src={img_gh_pr} alt="dowload" />
+              {/* <span className="action" onClick={!yaml ? null : () => this.pushToGithub(yaml)}> */}
+              {/* <span className="action" onClick={!yaml ? null : () => this.showGhDialog(true)}> */}
+              <span className="action" onClick={!yaml ? null : () => this.checkGhAuth()}>
+                Github
               </span>
             </a>
           </div>

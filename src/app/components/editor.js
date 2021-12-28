@@ -407,6 +407,7 @@ class Index extends Component {
   renderSidebar() {
     //c with state
     let { yaml, loading, values, allFields, remoteYml } = this.state;
+    console.log(this.state)
     let props = {
       yaml,
       loading,
@@ -415,7 +416,19 @@ class Index extends Component {
       remoteYml,
       onLoadingRemote: this.onLoadingRemote,
       onLoad: this.parseYml.bind(this),
-      onReset: this.reset.bind(this)
+      onReset: this.reset.bind(this),
+      authenticate: {
+        error: "",
+        isFetching: false,
+        authenticated: false,
+        ghAuthToken: null
+      },
+      autorize: {
+        error: "",
+        isFetching: false,
+        autorized: false,
+        targetRepo: null
+      }
     };
     return <Sidebar {...props} />;
   }
