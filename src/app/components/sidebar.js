@@ -60,7 +60,7 @@ class sidebar extends Component {
     this.state = {
       dialog: false,
       remoteYml: sampleUrl,
-      githubRepo: sampleGhUrl,
+      targetRepo: sampleGhUrl,
       ghdialog: false
     };
     console.log(this.state)
@@ -84,6 +84,9 @@ class sidebar extends Component {
   checkAuthState() {
     let access_token = window.sessionStorage.getItem('GH_ACCESS_TOKEN')
     let target_repo = window.sessionStorage.getItem('target_repo')
+
+    console.log("token", access_token)
+    console.log("repo", target_repo)
 
     // first case can only occur on cmpntDidUpdate()
     // if auth token found in store.state and stored on browser, 'authenticated'
@@ -133,6 +136,7 @@ class sidebar extends Component {
     // TODO: handle permutations and combinations of `authorized` w/ `authenticated`
     console.log("handleAuthState")
     console.log(verdict)
+    console.log(payload)
 
     if (verdict === 'authenticated') return
     else if (verdict === 'previously_authorized') {
@@ -161,6 +165,7 @@ class sidebar extends Component {
   }
 
   getCodeAndStateFromQs(qs) {
+    console.log("getCodeAndStateFromQs", qs)
     qs = qs.slice(1)
     if (!qs) return false
     let params = qs.split('&')
@@ -422,7 +427,7 @@ class sidebar extends Component {
                     <input
                       className="form-control"
                       type="url"
-                      value={this.state.githubRepo}
+                      value={this.state.targetRepo}
                       required={true}
                       onChange={e => this.handleGhChange(e)}
                     />
