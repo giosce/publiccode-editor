@@ -1,8 +1,8 @@
-import categories from "../categories";
 import scopes from "../scopes";
 import licenses from "../licenses";
 import langs from "../langs";
 import countries from "../countries";
+import categories from "../categories";
 
 const developmentStatus_list = [
   "concept",
@@ -25,8 +25,64 @@ const softwareType_list = [
 ];
 
 let versions = null;
+let issues = null;
+let technologies = null;
+let skills = null;
+let additionalFields = null;
+
+/*
+const api_data = async function (url) {
+  let data = new Array()
+  let response = await fetch(url)
+  let json = await response.json()
+  json[0].children.forEach(element => {
+    data.push(element.text)
+  });
+  console.log("Taxonomy data", data)
+  return data;
+}
+*/
 
 const fields = async () => {
+  console.log("env", process.env)
+  if(!issues) {
+    if(process.env.DATA_SRC_ISSUES) {
+      issues = new Array()
+      let response = await fetch(process.env.DATA_SRC_ISSUES)
+      let json = await response.json()
+      json[0].children.forEach(element => {
+        issues.push(element.text)
+      });
+      console.log("Taxonomy issues", issues)
+    } else {
+      issues = scopes    
+    }
+  }
+  if(!technologies) {
+    technologies = new Array()
+    let response2 = await fetch("https://api.taxonomy.sandbox.k8s.brigade.cloud/taxonomy?category=technologies")
+    let json2 = await response2.json()
+    json2[0].children.forEach(element => {
+      element.children.forEach(el => {
+        technologies.push(el.text)
+      })
+    });
+    technologies.sort()
+    console.log("Taxonomy technologies", technologies)
+  }
+  if(!skills) {
+    skills = new Array()
+    let response3 = await fetch("https://api.taxonomy.sandbox.k8s.brigade.cloud/taxonomy?category=skills")
+    let json3 = await response3.json()
+    json3[0].children.forEach(element => {
+      element.children.forEach(el => {
+        skills.push(el.text)
+      })
+    });
+    skills.sort()
+    console.log("Taxonomy skills", skills)
+  }
+
   if (!versions) {
     // console.log("get versions");
     try {
@@ -40,6 +96,8 @@ const fields = async () => {
     versions = await Promise.resolve(versions);
   }
 
+  // additionalFields = await import('./it.js');
+  // console.log("additionalFields", additionalFields)
   /*
    * minLength and maxLength parameter to constraint string input size
    */
@@ -268,6 +326,7 @@ const fields = async () => {
       enum: softwareType_list,
       section: 2,
       required: false,
+      group: "Software Details",
       widget: "choice-expanded"
     },
     {
@@ -345,10 +404,26 @@ const fields = async () => {
       items: {
         type: "string",
         title: "category",
-        enum: categories
+        enum: categories,
       },
       section: 6,
       required: true,
+      widget: "tags"
+    },
+    {
+      title: "technologies",
+      label: "Technologies",
+      description:
+        "A list of words that can be used to describe the software and can help building catalogs of open software. Each tag must be in Unicode lowercase, and should not contain any Unicode whitespace character. The suggested character to separate multiple words is - (single dash). See also: description/[lang]/freeTags/",
+      type: "array",
+      items: {
+        type: "string",
+        title: "technologies",
+        enum: technologies,
+      },
+      section: 2,
+      required: false,
+      group: "Software Details",
       widget: "tags"
     },
     {
@@ -360,7 +435,7 @@ const fields = async () => {
       items: {
         type: "string",
         title: "scope",
-        enum: scopes,
+        enum: issues,
       },
       section: 6,
       group: "intendedAudience",

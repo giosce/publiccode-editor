@@ -80,9 +80,12 @@ class Index extends Component {
   }
 
   async componentDidMount() {
+    console.log("env", process.env)
     await this.initData();
-    this.switchLang("it");
-    this.switchCountry("it");
+    // this.switchLang("it"); // example of bad hardcoding
+    // this.switchCountry("it");
+    this.switchLang(process.env.DEFAULT_LANG);
+    this.switchCountry(process.env.DEFAULT_COUNTRY);
 
     // checks whether url query parameter
     // is present in url, if so it will

@@ -83,7 +83,11 @@ const generateElements = blocks => {
 
 const getCountryElements = (countryCode = null) => {
   let country = countrySpec.find(c => c.code == countryCode);
-  if (country) return country.fields;
+  console.log("getCountryElements", countryCode, country)
+  if (country) {
+    console.log("getCountryElements", country.fields)
+    return country.fields;
+  }
   return null;
 };
 

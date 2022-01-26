@@ -7,7 +7,7 @@ function GithubClient(token) {
     async function fetchJson(url, options) {
         let res = await fetch(url, options)
         let json = await res.json()
-        console.log(res)
+        console.log("fetchJson - Response", res)
         if (!res.ok) {
             let { message } = json // GitHub bad http responses come with nice messages
             let er = Error(message)
@@ -46,8 +46,8 @@ function GithubClient(token) {
                 let target = `https://api.github.com/repos/giosce/hello-world/git/ref/heads/${branchName}`
                 let method = 'GET'
                 if (!access_token) throw Error(`No access token. Cannot fetch ${target} without authorization.`)
-                console.log("GithubClient", target)
-                console.log("GithubClient", access_token)
+                console.log("GithubClient - target", target)
+                console.log("GithubClient - access_token", access_token)
                 try {
                     return await fetchJson(target, { method, headers: { Authorization: `token ${access_token}`} })
                 } catch (er) {

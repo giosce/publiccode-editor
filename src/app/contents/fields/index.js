@@ -1,7 +1,16 @@
 // import uk from "./uk";
-// import us from "./us";
+import us from "./us";
 import it from "./it";
+import uk from "./uk";
 import getFields from "./generic";
+
+// I hope to find a better way than import everything and select as badly as below
+const getAdditionalFields = () => {
+  // I think additional fields should also be by organization
+  if("it" == process.env.COUNTRY_FIELDS) return it;
+  if("us" == process.env.COUNTRY_FIELDS) return us;
+  if("uk" == process.env.COUNTRY_FIELDS) return uk;
+}
 
 const sections = [
   "Name",
@@ -19,8 +28,10 @@ const groups = [
   "maintenance",
   "legal",
   "intendedAudience",
+  "Software Details",
   "localisation"
 ];
+console.log("env", process.env.COUNTRY_FIELDS)
 
 const countrySpec = [
   // {
@@ -33,10 +44,17 @@ const countrySpec = [
   //   name: "United States",
   //   fields: us
   // },
+  // {
+  //   code: "it",
+  //   name: "italia",
+  //   fields: it
+  // }
+  // fields seem to be "additional fields" and I'd suggest that they
+  // can be for an organization not just for a country
   {
-    code: "it",
-    name: "italia",
-    fields: it
+    code: process.env.COUNTRY_CODE,
+    name: process.env.COUNTRY_NAME,
+    fields: getAdditionalFields()
   }
 ];
 const available_countries = countrySpec.map(country => country.code);
@@ -46,7 +64,7 @@ const data = {
   groups,
   available_countries
 };
-
+console.log("data", data)
 export const fieldsAsync = async () => {
   return await getFields();
 };

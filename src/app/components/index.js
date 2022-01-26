@@ -53,6 +53,7 @@ const mapDispatchToProps = dispatch => {
     submit: name => dispatch(submit(name))
   };
 };
+
 const getReleases = () => {
 
   return fetch(versionsUrl)
