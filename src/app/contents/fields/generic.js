@@ -1,5 +1,5 @@
 import categories from "../categories";
-import scopes from "../scopes";
+import scopes_file from "../scopes";
 import licenses from "../licenses";
 import langs from "../langs";
 import countries from "../countries";
@@ -24,8 +24,39 @@ const softwareType_list = [
 ];
 
 let versions = null;
+let scopes = null;
+let technologies = null;
+// let skills = null;
+// let additionalFields = null;
 
 const fields = async () => {
+
+  if(process.env.SCOPES_API) {
+    let scopes_api = new Array()
+    let response = await fetch(process.env.SCOPES_API)
+    let json = await response.json()
+    json[0].children.forEach(element => {
+      scopes_api.push(element.text)
+    });
+    console.log("Taxonomy issues", scopes_api)
+    scopes = scopes_api
+  } else {
+    scopes = scopes_file    
+  }
+  
+  if(!technologies) {
+    technologies = new Array()
+    let response2 = await fetch(process.env.TECHNOLOGIES_API)
+    let json2 = await response2.json()
+    json2[0].children.forEach(element => {
+      element.children.forEach(el => {
+        technologies.push(el.text)
+      })
+    });
+    technologies.sort()
+    console.log("Taxonomy technologies", technologies)
+  }
+
   if (!versions) {
     // console.log("get versions");
     try {
@@ -348,6 +379,22 @@ const fields = async () => {
       },
       section: 6,
       required: true,
+      widget: "tags"
+    },
+    {
+      title: "technologies",
+      label: "Technologies",
+      description:
+        "A list of words that can be used to describe the software and can help building catalogs of open software. Each tag must be in Unicode lowercase, and should not contain any Unicode whitespace character. The suggested character to separate multiple words is - (single dash). See also: description/[lang]/freeTags/",
+      type: "array",
+      items: {
+        type: "string",
+        title: "technologies",
+        enum: technologies,
+      },
+      section: 2,
+      required: false,
+      group: "Software Details",
       widget: "tags"
     },
     {

@@ -1,7 +1,13 @@
 // import uk from "./uk";
-// import us from "./us";
+import us from "./us";
 import it from "./it";
 import getFields from "./generic";
+
+const getAdditionalFields = () => {
+  // I think additional fields should also be by organization
+  if("it" == process.env.COUNTRY_FIELDS) return it;
+  if("us" == process.env.COUNTRY_FIELDS) return us;
+}
 
 const sections = [
   "Name",
@@ -23,20 +29,10 @@ const groups = [
 ];
 
 const countrySpec = [
-  // {
-  //   code: "uk",
-  //   name: "United Kingdom",
-  //   fields: uk
-  // },
-  // {
-  //   code: "us",
-  //   name: "United States",
-  //   fields: us
-  // },
   {
-    code: "it",
-    name: "italia",
-    fields: it
+    code: process.env.COUNTRY_CODE,
+    name: process.env.COUNTRY_NAME,
+    fields: getAdditionalFields()
   }
 ];
 const available_countries = countrySpec.map(country => country.code);
